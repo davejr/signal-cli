@@ -41,6 +41,7 @@ public class SignalMessageReceiver {
             String sql = "CREATE TABLE IF NOT EXISTS messages (" +
                          "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                          "source TEXT," +
+						 "groupId TEXT," +
                          "timestamp INTEGER," +
                          "message TEXT)";
             stmt.execute(sql);
@@ -78,11 +79,16 @@ public class SignalMessageReceiver {
 
                 JsonNode dataMessage = envelope.path("dataMessage");
                 if (dataMessage.isMissingNode()) continue;
-
-                String body = dataMessage.path("message").asText();
+				
+				String body = dataMessage.path("message").asText();
+				
+				JsonNode groupInfo = dataMessage.path("groupInfo");
+                if (groupInfo.isMissingNode()) continue;
+				
+				String groupId = groupInfo.path("groupName").asText();
 
                 if (!body.isBlank()) {
-                    storeMessage(source, timestamp, body);
+                    storeMessage(source, timestamp, body, groupId);
                 }
             }
         }
@@ -92,15 +98,16 @@ public class SignalMessageReceiver {
     }
 }
 
-    private void storeMessage(String source, long timestamp, String message) {
-        String sql = "INSERT INTO messages(source, timestamp, message) VALUES (?, ?, ?)";
+    private void storeMessage(String source, long timestamp, String message, String groupId) {
+        String sql = "INSERT INTO messages(source, groupId, timestamp, message) VALUES (?, ?, ?, ?)";
 
         try (Connection conn = DriverManager.getConnection(DB_URL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setString(1, source);
-            pstmt.setLong(2, timestamp);
-            pstmt.setString(3, message);
+			pstmt.setString(2, groupId);
+            pstmt.setLong(3, timestamp);
+            pstmt.setString(4, message);
             pstmt.executeUpdate();
 
             System.out.println("Stored message from " + source);
